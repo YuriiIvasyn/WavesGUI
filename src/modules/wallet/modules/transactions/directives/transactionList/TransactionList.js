@@ -17,9 +17,10 @@
      * @param {TransactionsService} transactionsService
      * @param {Function} createPoll
      * @param {Function} createPromise
+     * @param {app.utils} utils
      * @return {TransactionList}
      */
-    const controller = function (Base, user, i18n, assetsService, transactionsService, createPoll, createPromise) {
+    const controller = function (Base, user, i18n, assetsService, transactionsService, createPoll, createPromise, utils) {
 
         class TransactionList extends Base {
 
@@ -49,6 +50,14 @@
                  * @type {IAssetInfo}
                  */
                 this.mirror = null;
+                /**
+                 * @type {boolean}
+                 */
+                this.hadResponse = false;
+                /**
+                 * @type {string}
+                 */
+                this.currentAssetId = null;
 
                 createPromise(this, user.getSetting('baseAssetId'))
                     .then((mirrorId) => {
@@ -70,7 +79,11 @@
              */
             _getTransactions() {
                 return transactionsService.transactions()
-                    .then((list) => list.map(this._getRate, this));
+                    .then((list) => list.map(this._map, this))
+                    .then((list) => {
+                        this.hadResponse = true;
+                        return list;
+                    });
             }
 
             /**
@@ -78,22 +91,17 @@
              * @return {Promise}
              * @private
              */
-            _getRate(item) {
-                if (item.amount) {
-                    assetsService.getRate(item.amount.assetId, this.mirrorId).then((api) => {
-                        item.mirrorBalance = api.exchange(Number(item.amount.tokens));
-                    });
-                    assetsService.getAssetInfo(item.amount.assetId)
-                        .then((asset) => {
-                            item.asset = asset;
-                        });
-                }
-                const date = {
-                    day: item.timestamp.getDate(),
-                    month: i18n.translate(`date.month.${item.timestamp.getMonth()}`)
-                };
-                item.date = date;
+            _map(item) {
                 item.type = this._getTransactionType(item);
+                item.address = this._getTransactionAddress(item);
+
+                switch (item.type) {
+                    case 'alias':
+                        item.amount = item.fee;
+                        break;
+                    default:
+                }
+
                 return item;
             }
 
@@ -102,17 +110,60 @@
              */
             _onChangeFilters() {
                 const filter = tsUtils.filterList(
+                    this._getAssetFilter(),
                     this._getTypeFilter(),
                     this._getSearchFilter()
                 );
-                this.transactions = (this._transactions || []).filter(filter);
+
+                const transactions = (this._transactions || []).filter(filter);
+                const hash = Object.create(null);
+                const toDate = tsUtils.date('DD.MM.YYYY');
+
+                transactions.forEach((transaction) => {
+                    const date = toDate(transaction.timestamp);
+                    if (!hash[date]) {
+                        hash[date] = { timestamp: transaction.timestamp, transactions: [] };
+                    }
+                    hash[date].transactions.push(transaction);
+                });
+
+                const dates = Object.keys(hash)
+                    .sort(utils.comparators.process((name) => hash[name].timestamp).desc);
+
+                this.transactions = dates.map((date) => ({
+                    timestamp: hash[date].timestamp,
+                    date,
+                    transactions: hash[date].transactions
+                }));
             }
 
+            _getAssetFilter() {
+                if (this.currentAssetId) {
+                    return ({ type, amount }) => {
+                        switch (type) {
+                            case 'send':
+                            case 'receive':
+                            case 'circular':
+                                return amount.asset.id === this.currentAssetId;
+                            default:
+                                return false;
+                        }
+                    };
+                } else {
+                    return () => true;
+                }
+            }
+
+            /**
+             * @returns {*}
+             * @private
+             */
             _getTypeFilter() {
                 if (!this.transactionType || this.transactionType === 'all') {
                     return () => true;
                 } else {
-                    return ({ type }) => type === this.transactionType;
+                    const types = this.transactionType.split(',').map((item) => item.trim());
+                    return ({ type }) => types.indexOf(type) !== -1;
                 }
             }
 
@@ -132,7 +183,8 @@
                         if (field instanceof Date) {
                             return `${field.getDate()}`.indexOf(this.search) !== -1;
                         }
-                        return String(field).indexOf(this.search) !== -1;
+                        return String(field)
+                            .indexOf(this.search) !== -1;
                     });
                 };
             }
@@ -147,8 +199,30 @@
                 switch (transactionType) {
                     case 'transfer':
                         return TransactionList._getTransferType(sender, recipient);
+                    case 'createAlias':
+                        return 'alias';
                     default:
                         return transactionType;
+                }
+            }
+
+            /**
+             * @param type
+             * @param sender
+             * @param recipient
+             * @return {*}
+             * @private
+             */
+            _getTransactionAddress({ type, sender, recipient }) {
+                switch (type) {
+                    case 'receive':
+                    case 'issue':
+                    case 'reissue':
+                    case 'exchange':
+                    case 'alias':
+                        return sender;
+                    default:
+                        return recipient;
                 }
             }
 
@@ -159,7 +233,7 @@
              * @private
              */
             static _getTransferType(sender, recipient) {
-                return sender === recipient ? 'circle' : sender === user.address ? 'sent' : 'receive';
+                return sender === recipient ? 'circular' : sender === user.address ? 'send' : 'receive';
             }
 
         }
@@ -167,15 +241,26 @@
         return new TransactionList();
     };
 
-    controller.$inject = ['Base', 'user', 'i18n', 'assetsService', 'transactionsService', 'createPoll', 'createPromise'];
+    controller.$inject = [
+        'Base',
+        'user',
+        'i18n',
+        'assetsService',
+        'transactionsService',
+        'createPoll',
+        'createPromise',
+        'utils'
+    ];
 
-    angular.module('app.wallet.transactions').component('wTransactionList', {
-        bindings: {
-            transactionType: '<',
-            search: '<'
-        },
-        templateUrl: '/modules/wallet/modules/transactions/directives/transactionList/transactionList.html',
-        transclude: false,
-        controller
-    });
+    angular.module('app.wallet.transactions')
+        .component('wTransactionList', {
+            bindings: {
+                currentAssetId: '@',
+                transactionType: '<',
+                search: '<'
+            },
+            templateUrl: 'modules/wallet/modules/transactions/directives/transactionList/transactionList.html',
+            transclude: false,
+            controller
+        });
 })();

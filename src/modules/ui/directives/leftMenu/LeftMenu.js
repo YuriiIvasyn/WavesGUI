@@ -19,6 +19,10 @@
                 this.receive(state.signals.changeRouterState, this._initStateList, this);
             }
 
+            logout() {
+                location.reload();
+            }
+
             _initStateList() {
                 const root = WavesApp.stateTree.find(LEFT_MENU_ROOT_ID);
                 const rootPath = WavesApp.stateTree.getPath(LEFT_MENU_ROOT_ID).join('.');
@@ -39,7 +43,7 @@
 
     angular.module('app.ui').component('wLeftMenu', {
         bindings: {},
-        templateUrl: '/modules/ui/directives/leftMenu/leftMenu.html',
+        templateUrl: 'modules/ui/directives/leftMenu/leftMenu.html',
         transclude: false,
         controller
     });

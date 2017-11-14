@@ -9,16 +9,36 @@
         [WavesApp.defaultAssets.USD]: '/img/assets/dollar.png'
     };
 
-    const ASSET_CHARS_MAP = {
-        // [WavesApp.defaultAssets.USD]: '$'
-    };
-
     const COLORS_MAP = {
-        'A': '#455A64',
-        'B': '#FF9933'
+        'A': '#39a12c',
+        'B': '#6a737b',
+        'C': '#e49616',
+        'D': '#008ca7',
+        'E': '#ff5b38',
+        'F': '#ff6a00',
+        'G': '#c74124',
+        'H': '#00a78e',
+        'I': '#b01e53',
+        'J': '#e0c61b',
+        'K': '#5a81ea',
+        'L': '#72b7d2',
+        'M': '#a5b5c3',
+        'N': '#81c926',
+        'O': '#86a3bd',
+        'P': '#c1d82f',
+        'Q': '#5c84a8',
+        'R': '#267e1b',
+        'S': '#fbb034',
+        'T': '#ff846a',
+        'U': '#47c1ff',
+        'V': '#00a0af',
+        'W': '#85d7c6',
+        'X': '#8a7967',
+        'Y': '#26c1c9',
+        'Z': '#72d28b'
     };
 
-    const DEFAULT_COLOR = '#FF9933';
+    const DEFAULT_COLOR = '#96bca0';
 
     /**
      * @param {JQuery} $element
@@ -65,9 +85,9 @@
                                     $element.find('.asset-logo')
                                         .css('background-image', `url(${ASSET_IMAGES_MAP[asset.id]})`);
                                 })
-                                .catch(() => this._addLatter(asset));
+                                .catch(() => this._addLetter(asset));
                         } else {
-                            this._addLatter(asset);
+                            this._addLetter(asset);
                         }
                     });
             }
@@ -75,8 +95,8 @@
             /**
              * @private
              */
-            _addLatter(asset) {
-                const letter = ASSET_CHARS_MAP[asset.id] || asset.name.charAt(0)
+            _addLetter(asset) {
+                const letter = asset.name.charAt(0)
                     .toUpperCase();
                 const color = COLORS_MAP[letter] || DEFAULT_COLOR;
                 const fontSize = Math.round((Number(this.size) || 0) * 0.8);

@@ -6,9 +6,10 @@
      * @param {app.utils} utils
      * @param {app.utils.decorators} decorators
      * @param $templateRequest
+     * @param $rootScope
      * @return {ModalManager}
      */
-    const factory = function ($mdDialog, utils, decorators, $templateRequest) {
+    const factory = function ($mdDialog, utils, decorators, $templateRequest, $rootScope) {
 
 
         const DEFAULT_OPTIONS = {
@@ -22,7 +23,7 @@
         };
 
         const DEFAULT_TEMPLATES_URLS = {
-            HEADER: '/modules/utils/modals/templates/header.modal.html'
+            HEADER: 'modules/utils/modals/templates/header.modal.html'
         };
 
 
@@ -30,6 +31,25 @@
 
             constructor() {
                 this.openModal = new tsUtils.Signal();
+                this._counter = 0;
+
+                $rootScope.$on('$stateChangeStart', () => {
+                    const counter = this._counter;
+
+                    for (let i = 0; i < counter; i++) {
+                        $mdDialog.cancel();
+                    }
+                });
+            }
+
+            showAssetInfo(asset) {
+                return this._getModal({
+                    ns: 'app.utils',
+                    title: 'modal.assetInfo.title',
+                    contentUrl: 'modules/utils/modals/assetInfo/assetInfo.html',
+                    locals: asset,
+                    controller: 'AssetInfoCtrl'
+                });
             }
 
             /**
@@ -37,7 +57,7 @@
              */
             showTermsAccept(user) {
                 return this._getModal({
-                    templateUrl: '/modules/utils/modals/termsAccept/terms-accept.html',
+                    templateUrl: 'modules/utils/modals/termsAccept/terms-accept.html',
                     controller: 'TermsAcceptCtrl',
                     clickOutsideToClose: false,
                     escapeToClose: false
@@ -56,7 +76,7 @@
                 return this._getModal({
                     controller: 'AccountInformationCtrl',
                     title: 'modal.account.title',
-                    contentUrl: '/modules/utils/modals/accountInformation/account-information.modal.html',
+                    contentUrl: 'modules/utils/modals/accountInformation/account-information.modal.html',
                     mod: 'account-info'
                 });
             }
@@ -69,31 +89,31 @@
              * @return {Promise}
              */
             showSendAsset(data) {
-                return data.user.getSetting('baseAssetId').then((baseAssetId) => this._getModal({
-                    controller: 'AssetSendCtrl',
-                    titleContentUrl: '/modules/utils/modals/sendAsset/send-title.modal.html',
-                    contentUrl: '/modules/utils/modals/sendAsset/send.modal.html',
-                    mod: 'modal-send',
-                    locals: { assetId: data.assetId, baseAssetId, canChooseAsset: data.canChooseAsset }
-                }));
+                return data.user.getSetting('baseAssetId')
+                    .then((baseAssetId) => this._getModal({
+                        controller: 'AssetSendCtrl',
+                        titleContentUrl: 'modules/utils/modals/sendAsset/send-title.modal.html',
+                        contentUrl: 'modules/utils/modals/sendAsset/send.modal.html',
+                        mod: 'modal-send',
+                        locals: { assetId: data.assetId, baseAssetId, canChooseAsset: data.canChooseAsset }
+                    }));
             }
 
             /**
-             * @param {object} data
-             * @param {string} [data.assetId]
-             * @param {boolean} [data.canChooseAsset]
+             * @param {User} user
              * @return {Promise}
              */
-            showReceiveAsset(data) {
-                const literal = 'w-i18n="modal.receive.title"';
-                const params = 'params="{assetName: $ctrl.asset.name}"';
-                return this._getModal({
-                    locals: data,
-                    titleContent: `<div class="headline-1" ${literal} ${params}></div>`,
-                    contentUrl: '/modules/utils/modals/receiveAsset/receive.modal.html',
-                    controller: 'AssetReceiveCtrl',
-                    mod: 'modal-receive',
-                });
+            showReceiveAsset(user) {
+                return user.onLogin()
+                    .then(() => {
+                        return this._getModal({
+                            locals: user.address,
+                            title: 'modal.receive.title',
+                            contentUrl: 'modules/utils/modals/receiveAsset/receive.modal.html',
+                            controller: 'AssetReceiveCtrl',
+                            mod: 'modal-receive'
+                        });
+                    });
             }
 
             /**
@@ -101,7 +121,7 @@
              */
             getSeed() {
                 return this._getModal({
-                    templateUrl: '/modules/utils/modals/enterPassword/enterPassword.modal.html',
+                    templateUrl: 'modules/utils/modals/enterPassword/enterPassword.modal.html',
                     controller: 'EnterPasswordCtrl'
                 });
             }
@@ -116,17 +136,25 @@
                     target.bindToController = true;
                 }
 
-                return ModalManager._getTemplate(target).then((template) => {
-                    const { controller, controllerAs } = ModalManager._getController(options);
+                return ModalManager._getTemplate(target)
+                    .then((template) => {
+                        const { controller, controllerAs } = ModalManager._getController(options);
+                        const changeCounter = () => {
+                            this._counter--;
+                        };
 
-                    target.controller = controller;
-                    target.controllerAs = controllerAs;
-                    target.template = template;
+                        target.controller = controller;
+                        target.controllerAs = controllerAs;
+                        target.template = template;
 
-                    const modal = $mdDialog.show(target);
-                    this.openModal.dispatch(modal);
-                    return modal;
-                });
+                        this._counter++;
+                        const modal = $mdDialog.show(target);
+
+                        modal.then(changeCounter, changeCounter);
+
+                        this.openModal.dispatch(modal);
+                        return modal;
+                    });
             }
 
             /**
@@ -201,14 +229,18 @@
              */
             static _createTemplate(options) {
                 return Promise.all([
-                    ModalManager._getHeader(options).then(ModalManager._wrapTemplate('md-toolbar')),
-                    ModalManager._getContent(options).then(ModalManager._wrapTemplate('md-dialog-content')),
+                    ModalManager._getHeader(options)
+                        .then(ModalManager._wrapTemplate('md-toolbar')),
+                    ModalManager._getContent(options)
+                        .then(ModalManager._wrapTemplate('md-dialog-content')),
                     ModalManager._getFooter(options)
-                ]).then((templateParts) => {
-                    const { mod, ns } = options;
-                    const content = templateParts.filter(Boolean).join('');
-                    return ModalManager._getWrapTemplate({ ns, mod, content });
-                });
+                ])
+                    .then((templateParts) => {
+                        const { mod, ns } = options;
+                        const content = templateParts.filter(Boolean)
+                            .join('');
+                        return ModalManager._getWrapTemplate({ ns, mod, content });
+                    });
             }
 
             /**
@@ -218,7 +250,8 @@
              */
             static _getHeader(options) {
                 if (options.title) {
-                    const title = `<div class="headline-1" w-i18n="${options.title}"></div>`;
+                    const params = options.titleParams ? JSON.stringify(options.titleParams) : '';
+                    const title = `<div class="headline-1" params='${params}' w-i18n="${options.title}"></div>`;
                     return ModalManager._loadTemplate(DEFAULT_TEMPLATES_URLS.HEADER)
                         .then((template) => template.replace('{{title}}', title));
                 } else if (options.titleContent || options.titleContentUrl) {
@@ -266,6 +299,11 @@
                 }
             }
 
+            /**
+             * @param {string} tagName
+             * @return {Function}
+             * @private
+             */
             static _wrapTemplate(tagName) {
                 return function (template) {
                     if (template) {
@@ -275,6 +313,13 @@
                 };
             }
 
+            /**
+             * @param {string} ns
+             * @param {string} mod
+             * @param {string} content
+             * @return {string}
+             * @private
+             */
             static _getWrapTemplate({ ns, mod, content }) {
                 const namespace = ns ? `w-i18n-ns="${ns}"` : '';
                 const classes = mod ? `class="${mod}"` : '';
@@ -295,9 +340,10 @@
         return new ModalManager();
     };
 
-    factory.$inject = ['$mdDialog', 'utils', 'decorators', '$templateRequest'];
+    factory.$inject = ['$mdDialog', 'utils', 'decorators', '$templateRequest', '$rootScope'];
 
-    angular.module('app.utils').factory('modalManager', factory);
+    angular.module('app.utils')
+        .factory('modalManager', factory);
 })();
 
 /**
@@ -307,6 +353,7 @@
  * @property {string} [template]
  * @property {string} [templateUrl]
  * @property {string} [title]
+ * @property {string} [titleParams]
  * @property {string} [titleContent]
  * @property {string} [titleContentUrl]
  * @property {string} [header]

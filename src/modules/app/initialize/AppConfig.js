@@ -22,12 +22,28 @@
              * @private
              */
             _initLocalize() {
+
+                const LOCAL_NUMBER_GROUP_SEPARATROS = {
+                    en: ',',
+                    ru: ' '
+                };
+
+                const BIG_NUMBER_FORMAT = {
+                    decimalSeparator: '.',
+                    groupSeparator: ',',
+                    groupSize: 3,
+                    secondaryGroupSize: 0,
+                    fractionGroupSeparator: ' ',
+                    fractionGroupSize: 0
+                };
+
                 i18next
                     .use(i18nextXHRBackend)
-                    .use(i18nextBrowserLanguageDetector)
+                    // .use(i18nextBrowserLanguageDetector) TODO Change lang detect. Author Tsigel at 03/11/2017 13:23
                     .init({
+                        lng: 'en',
                         debug: true, // TODO remove for production
-                        ns: WavesApp.modules,
+                        ns: WavesApp.modules.filter(tsUtils.notContains('app.templates')),
                         fallbackLng: 'en',
                         whitelist: ['en', 'ru'],
                         defaultNS: 'app',
@@ -40,10 +56,29 @@
                                 const parts = ns.split('.');
                                 const path = parts.length === 1 ? ns : parts.filter((item) => item !== 'app')
                                     .join('/modules/');
-                                return `modules/${path}/locales/${lng}.json`;
+                                return `/modules/${path}/locales/${lng}.json`;
                             }
                         }
                     });
+
+                i18next.on('initialized', () => {
+
+                    BigNumber.config({
+                        ROUNDING_MODE: BigNumber.ROUND_DOWN,
+                        FORMAT: tsUtils.merge(Object.create(null), BIG_NUMBER_FORMAT, {
+                            groupSeparator: LOCAL_NUMBER_GROUP_SEPARATROS[i18next.language]
+                        })
+                    });
+
+                    i18next.on('languageChanged', () => {
+                        BigNumber.config({
+                            ROUNDING_MODE: BigNumber.ROUND_DOWN,
+                            FORMAT: tsUtils.merge(Object.create(null), BIG_NUMBER_FORMAT, {
+                                groupSeparator: LOCAL_NUMBER_GROUP_SEPARATROS[i18next.language]
+                            })
+                        });
+                    });
+                });
             }
 
             /**

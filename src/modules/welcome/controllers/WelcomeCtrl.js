@@ -1,7 +1,7 @@
 (function () {
     'use strict';
 
-    const PATH = 'modules/welcome/templates/';
+    const PATH = 'modules/welcome/templates';
 
     const controller = function ($state, apiWorker, user) {
 
@@ -39,7 +39,8 @@
                     .then(() => {
                         user.addUserData({
                             address: this.address,
-                            encryptedSeed: this.encryptedSeed
+                            encryptedSeed: this.encryptedSeed,
+                            password: this.password
                         });
                     }, () => {
                         this.password = '';

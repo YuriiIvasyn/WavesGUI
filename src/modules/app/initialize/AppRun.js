@@ -75,7 +75,7 @@
             }
 
             _initializeLogin() {
-                const START_STATES = WavesApp.stateTree.where({ noLogin: true }).map(item => item.id);
+                const START_STATES = WavesApp.stateTree.where({ noLogin: true }).map((item) => item.id);
                 const stop = $rootScope.$on('$stateChangeSuccess', (event, state, params) => {
                     user.login()
                         .then(() => {
@@ -194,7 +194,7 @@
         return new AppRun();
     };
 
-    run.$inject = ['$rootScope', 'user', '$state', 'apiWorker', 'state', 'modalManager'];
+    run.$inject = ['$rootScope', 'user', '$state', 'apiWorker', 'state', 'modalManager', 'modalRouter'];
 
     angular.module('app')
         .run(run);

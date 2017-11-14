@@ -28,7 +28,7 @@
                 this.defaults = {
                     logoutAfterMin: 5,
                     encryptionRounds: 5000,
-                    savePassword: false,
+                    savePassword: true,
                     termsAccepted: true,
                     baseAssetId: WavesApp.defaultAssets.USD,
                     events: Object.create(null),
@@ -36,7 +36,15 @@
                         activeState: 'assets',
                         assets: {
                             chartMode: 'week',
+                            activeChartAssetId: WavesApp.defaultAssets.WAVES,
+                            chartAssetIds: [
+                                WavesApp.defaultAssets.WAVES,
+                                WavesApp.defaultAssets.BTC,
+                                WavesApp.defaultAssets.ETH
+                            ],
                             assetList: [
+                                WavesApp.defaultAssets.USD,
+                                WavesApp.defaultAssets.EUR,
                                 WavesApp.defaultAssets.WAVES,
                                 WavesApp.defaultAssets.BTC,
                                 WavesApp.defaultAssets.ETH
