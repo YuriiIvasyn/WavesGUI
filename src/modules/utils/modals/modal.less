@@ -1,0 +1,29 @@
+body:not(.create):not(.welcome) {
+
+  md-dialog {
+    md-toolbar {
+      .md-toolbar-tools {
+        height: auto;
+      }
+
+      position: relative;
+      padding: 20px 40px;
+
+      .btn.icon-close {
+        position: absolute;
+        right: 40px;
+        top: 50%;
+        transform: translateY(-50%);
+      }
+    }
+
+    md-dialog-content {
+      display: block;
+      padding: 30px 40px 40px 40px;
+    }
+  }
+  .asset-content .top-content w-asset-logo {
+    margin-right: 20px;
+    float: left
+  }
+}
